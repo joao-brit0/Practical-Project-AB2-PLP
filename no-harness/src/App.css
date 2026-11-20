@@ -1,0 +1,157 @@
+.monitor-app {
+  width: min(760px, calc(100% - 32px));
+  margin: 0 auto;
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  padding: 48px 0;
+  position: relative;
+}
+
+.status-card,
+.history-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+}
+
+.status-card {
+  padding: 36px;
+  text-align: center;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.status-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.status-indicator.online {
+  color: #15803d;
+}
+
+.status-indicator.online .status-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 7px rgba(34, 197, 94, 0.12);
+}
+
+.status-indicator.offline {
+  color: #dc2626;
+}
+
+.status-indicator.offline .status-dot {
+  background: #ef4444;
+  box-shadow: 0 0 0 7px rgba(239, 68, 68, 0.12);
+}
+
+.history-card {
+  padding: 24px 28px;
+  min-height: 220px;
+}
+
+.history-card h2 {
+  font-size: 19px;
+  margin: 0 0 16px;
+  text-align: left;
+}
+
+.empty-history {
+  color: var(--muted);
+  padding: 28px 0;
+  text-align: center;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.history-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding: 14px 2px;
+}
+
+.history-status {
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.history-status.online {
+  color: #15803d;
+}
+
+.history-status.offline {
+  color: #dc2626;
+}
+
+.history-list time {
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notification {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  border-radius: 999px;
+  padding: 10px 18px;
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+
+.notification-online {
+  background: #15803d;
+}
+
+.notification-offline {
+  background: #dc2626;
+}
+
+@media (max-width: 600px) {
+  .monitor-app {
+    width: calc(100% - 24px);
+    justify-content: flex-start;
+    padding-top: 88px;
+  }
+
+  .status-card {
+    padding: 28px 16px;
+  }
+
+  .status-indicator {
+    font-size: 34px;
+  }
+}
