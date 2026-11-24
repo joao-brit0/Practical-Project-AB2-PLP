@@ -1,14 +1,14 @@
-# Experimento
+# Experimento 1 — Sem Harness
 
-## Experimento 1 — Sem Harness
+## 1. Objetivo
 
-### Objetivo
+Implementar um monitor de conexão utilizando um agente de IA sem fornecer regras arquiteturais específicas.
 
-Implementar um monitor de conexão utilizando um agente
-de IA sem fornecer regras arquiteturais específicas.
+---
 
-### Prompt utilizado
+## 2. Prompt utilizado
 
+```markdown
 Crie uma aplicação web utilizando React + TypeScript + Vite chamada
 "Reactive Connection Monitor".
 
@@ -92,22 +92,93 @@ Ao finalizar:
 5. Corrija os problemas encontrados antes de finalizar.
 
 Não crie funcionalidades além das especificadas.
+```
 
-### Resultado
+---
 
-Implementação realizada pelo agente.
+## 3. Implementação
 
-### Métricas
+- **Data:** 20/11/2026
+- **Agente/modelo:** `mai-code-2-flash`
+- **Tempo aproximado:** 5m 16s
 
-- Erros funcionais: 
-- Violações arquiteturais:
-- Testes faltantes:
-- Erros de lint:
-- Erros de TypeScript:
-- Falhas de build:
-- Intervenções humanas:
-- Iterações com o agente:
+A implementação foi gerada pelo agente a partir do prompt especificado acima.
 
-### Observações
+A solução utiliza **React + TypeScript + Vite** e possui uma camada específica para gerenciamento da conectividade. A comunicação entre a camada de conectividade e a interface utiliza um modelo de estado observável, com `useSyncExternalStore` no lado do React.
 
-[Preencher após a análise]
+A estrutura principal gerada foi:
+
+```text
+src/
+├── App.tsx
+├── App.test.tsx
+├── connectivity/
+│   ├── ConnectionMonitor.ts
+│   ├── ConnectionMonitor.test.ts
+│   └── useConnectionMonitor.ts
+└── test/
+    └── setup.ts
+```
+
+---
+
+## 4. Intervenções humanas
+
+1. Definição do problema, dos requisitos funcionais e dos requisitos arquiteturais utilizados no prompt.
+2. Análise da implementação gerada para verificar se os requisitos arquiteturais foram atendidos.
+3. Análise dos testes e da cobertura da solução após a geração do projeto.
+
+---
+
+## 5. Problemas encontrados
+
+### Funcionais
+
+- Não foram identificados problemas funcionais relevantes na implementação analisada.
+- A aplicação implementa o estado inicial da conexão, as transições `ONLINE → OFFLINE` e `OFFLINE → ONLINE`, as notificações e o histórico de alterações.
+- O histórico permanece disponível enquanto a aplicação está aberta.
+
+### Arquiteturais
+
+- Não foi identificada uma violação arquitetural clara nos requisitos definidos.
+- A implementação separa a observação dos eventos do navegador dos componentes de apresentação.
+- Existe uma única instância responsável pelo monitoramento da conectividade.
+- Os componentes React consomem o estado produzido pelo monitor por meio de `useSyncExternalStore`.
+- A utilização de `window.addEventListener` dentro da camada de conectividade não foi considerada uma violação, pois a regra estabelecida era impedir que os componentes de apresentação gerenciassem diretamente esses eventos.
+- Não foi implementado um mecanismo automático de validação da arquitetura.
+
+### Testes
+
+- Os principais comportamentos possuem testes automatizados.
+- Existe cobertura para o estado inicial, transições de conectividade, histórico e notificações.
+- Foi identificada uma lacuna de cobertura: não há um teste explícito verificando o comportamento de remoção dos *listeners* após a chamada de `stop()`.
+- Também não existe um comando unificado de validação que execute todos os testes e verificações arquiteturais em conjunto.
+
+### Qualidade
+
+- A solução apresenta uma estrutura relativamente organizada e utiliza TypeScript adequadamente.
+- A implementação evita a introdução desnecessária de bibliotecas de gerenciamento de estado.
+- O código utiliza uma abstração para a fonte de eventos do navegador, facilitando os testes da lógica de conectividade.
+- A principal limitação em relação ao experimento é a ausência de um Harness: as regras arquiteturais estão presentes apenas no prompt e não existem mecanismos persistentes no repositório para reforçá-las ou validá-las automaticamente.
+
+---
+
+## 6. Resultado das ferramentas
+
+| Ferramenta | Status |
+| :--- | :--- |
+| **Testes** | `PASS` |
+| **Lint** | `PASS` |
+| **Typecheck** | `PASS` |
+| **Build** | `PASS` |
+
+---
+
+## 7. Observações
+
+- A implementação sem Harness apresentou uma arquitetura adequada mesmo sem mecanismos persistentes de orientação e validação no repositório.
+- Isso é importante para a comparação experimental, pois evita concluir previamente que a ausência de Harness necessariamente produz uma implementação incorreta.
+- As regras arquiteturais foram fornecidas diretamente ao agente por meio do prompt.
+- O principal diferencial esperado do Harness será fornecer essas regras de forma persistente e adicionar mecanismos automatizados capazes de detectar violações.
+- A ausência de um teste explícito para `stop()` representa uma oportunidade de melhoria na cobertura, mas não foi classificada como falha funcional.
+- A ausência de um validador arquitetural não deve ser considerada uma falha da implementação sem Harness, pois a proposta do experimento é justamente comparar uma abordagem sem esse mecanismo com uma abordagem que possua Harness.
