@@ -2,11 +2,13 @@
 
 ## 1. Objetivo
 
-Implementar o mesmo monitor de conexão utilizando um agente de IA orientado por um **Agent Harness** persistente (`AGENTS.md`, `docs/invariants.md`, regras estáticas de ESLint e script automatizado de validação arquitetural).
+Implementar e evoluir iterativamente o monitor de conexão utilizando um agente de IA orientado por um **Agent Harness** persistente (`AGENTS.md`, `docs/invariants.md`, regras estáticas de ESLint e script automatizado de validação arquitetural).
 
 ---
 
-## 2. Prompt utilizado
+## 2. Prompts utilizados
+
+### Prompt 1 — Setup inicial, governança e implementação base
 
 ```markdown
 Leia integralmente `harness/AGENTS.md` e `harness/docs/invariants.md` antes de criar ou editar qualquer arquivo.
@@ -34,22 +36,50 @@ Implemente o **Reactive Connection Monitor** exclusivamente dentro de `harness/s
 - Ao finalizar, execute `npm run agent:check` dentro de `harness/` e corrija qualquer falha de lint, typecheck, testes, build ou validação até obter código de saída 0.
 ```
 
+### Prompt 2 — Evolução iterativa para detecção híbrida (Heartbeat ativo via `fetch`)
+
+```markdown
+Leia integralmente `harness/AGENTS.md` e `harness/docs/invariants.md` antes de editar qualquer arquivo.
+
+Aprimore a camada reativa em `harness/src/connectivity/` para suportar **detecção híbrida de conectividade** (eventos `online`/`offline` do `window` + sondagem periódica ativa via `fetch`), garantindo que quedas reais de Wi-Fi ou Modo Avião no Windows sejam detectadas mesmo quando `navigator.onLine` permanecer `true` por conta de adaptadores virtuais:
+
+1. **Sondagem Ativa (`src/connectivity/ConnectionMonitor.ts`):**
+   - Além dos listeners `'online'` e `'offline'`, adicione um heartbeat periódico opcional/configurável (padrão a cada `3000ms`, usando `fetch` com `mode: 'no-cors'`, `cache: 'no-store'` e `AbortController` com timeout).
+   - Com `mode: 'no-cors'`, considere a conexão ativa sempre que a Promise do `fetch` resolver (mesmo com resposta opaca `status === 0`), e considere desconectada apenas quando a Promise rejeitar ou sofrer timeout.
+   - Mantenha a inicialização silenciosa (`INV-07`): o status inicial continua vindo de `navigator.onLine` sem notificação ou evento no histórico.
+   - Mantenha a contagem de referências e cleanup determinístico (`INV-04`, `INV-05`, `INV-11`): inicie o `setInterval` da sondagem somente quando os assinantes passarem de `0` para `1`, e execute `clearInterval` + `abort()` da requisição em andamento quando caírem de `1` para `0` ou em `destroy()`.
+   - Mantenha a idempotência (`INV-08`): se o status já for `'online'` e o heartbeat confirmar `'online'` (ou já for `'offline'` e falhar novamente), não emita snapshot nem reinicie timers.
+
+2. **Testes Automatizados (`src/test/setup.ts` e `src/connectivity/ConnectionMonitor.test.ts`):**
+   - Configure um mock padrão de `globalThis.fetch` em `src/test/setup.ts` (resolvendo por padrão) para manter determinismo nos testes que avançam `vi.useFakeTimers()`.
+   - Adicione testes unitários específicos validando: (a) transição para `'offline'` quando o `fetch` rejeita mesmo com `navigator.onLine === true`; (b) retorno para `'online'` quando o `fetch` volta a resolver; e (c) cancelamento do intervalo e do `AbortController` no `unsubscribe`/`destroy`.
+
+Restrições:
+- NÃO leia nem modifique `no-harness/`.
+- NÃO altere `AGENTS.md`, `docs/invariants.md`, `eslint.config.js`, `tsconfig*.json`, `package.json` ou `scripts/validate.mjs`.
+
+Execute `npm run agent:check` dentro de `harness/` e corrija qualquer falha até obter código de saída 0.
+```
+
 ---
 
 ## 3. Implementação
 
 - **Data:** 25/11/2026
-- **Agente/modelo:** `Copilot Fusion - Standard` (VS Code Copilot Chat em modo `Agent` / `Auto-approve`)
-- **Tempo aproximado:** ~4min (início às 08:30, validação final concluída às 08:34)
+- **Agente/modelo:** `Copilot Fusion - Standard` (VS Code Copilot Chat em modo `Agent` / `Autopilot`)
+- **Tempo aproximado:**
+  - **Ciclo 1 (Geração inicial):** ~4min (08:30 às 08:34)
+  - **Ciclo 2 (Refinamento híbrido):** 1min 50s (20 passos executados pelo agente)
 
-Partindo exclusivamente dos arquivos de governança (`harness/AGENTS.md` e `harness/docs/invariants.md`), o agente inicializou o projeto Vite + TypeScript, configurou os bloqueios mecânicos (`eslint.config.js` e `scripts/validate.mjs`), implementou a arquitetura em camadas e executou o pipeline completo `npm run agent:check`.
+Partindo exclusivamente dos arquivos de governança (`harness/AGENTS.md` e `harness/docs/invariants.md`), o agente inicializou o projeto Vite + TypeScript, configurou os bloqueios mecânicos (`eslint.config.js` e `scripts/validate.mjs`), implementou a arquitetura em camadas e, na segunda iteração, incorporou a sondagem ativa via `fetch` mantendo todas as invariantes intactas.
 
-A estrutura principal gerada em `harness/` foi:
+A estrutura final gerada em `harness/` foi:
 
 ```text
 harness/
 ├── AGENTS.md
 ├── eslint.config.js
+├── index.html
 ├── package.json
 ├── tsconfig.json
 ├── tsconfig.app.json
@@ -60,13 +90,18 @@ harness/
 ├── scripts/
 │   └── validate.mjs
 └── src/
-    ├── App.css
     ├── App.tsx
     ├── App.test.tsx
+    ├── index.css
     ├── main.tsx
     ├── components/
+    │   ├── ConnectionHistory.tsx
+    │   ├── ConnectionNotification.tsx
+    │   └── ConnectionStatus.tsx
     ├── connectivity/
-    │   └── ConnectionMonitor.test.ts
+    │   ├── ConnectionMonitor.test.ts
+    │   ├── ConnectionMonitor.ts
+    │   └── types.ts
     ├── hooks/
     │   └── useConnectionMonitor.ts
     └── test/
@@ -78,9 +113,10 @@ harness/
 ## 4. Intervenções humanas
 
 1. Escrita prévia dos documentos de contrato e governança (`harness/AGENTS.md` e `harness/docs/invariants.md`).
-2. Envio do prompt inicial instruindo o agente a construir o setup, os gates mecânicos e a aplicação sob o contrato do harness.
-3. Nenhuma intervenção manual no código-fonte gerado foi necessária durante ou após a execução do agente.
-4. Verificação visual da interface em execução (`npm run dev`) simulando transições de rede pelo DevTools (`Network → Offline`).
+2. Envio do Prompt 1 para geração do projeto base, infraestrutura de validação e interface.
+3. Teste manual no navegador (`npm run dev`), identificando que adaptadores virtuais do Windows mantinham `navigator.onLine === true` ao desligar o Wi-Fi físico.
+4. Envio do Prompt 2 solicitando o mecanismo híbrido de sondagem ativa (`fetch` heartbeat) na camada `src/connectivity/`.
+5. Nenhuma edição manual foi realizada no código-fonte gerado pelo agente em nenhum dos ciclos.
 
 ---
 
@@ -88,27 +124,27 @@ harness/
 
 ### Funcionais
 
-- Não foram identificados problemas funcionais na implementação gerada.
-- A aplicação inicia refletindo silenciosamente `navigator.onLine`, detecta transições reais `online → offline` e `offline → online`, exibe notificações temporárias por `4000ms` com cancelamento preemptivo via `clearTimeout` e mantém o histórico LIFO imutável limitado a `10` itens.
+- Na primeira versão (baseada apenas nos eventos nativos `online`/`offline` e `navigator.onLine`), a aplicação funcionava conforme especificado na simulação via DevTools, mas não detectava a desconexão física do Wi-Fi ou Modo Avião no Windows devido às interfaces virtuais ativas no sistema operacional.
+- Após o refinamento do Ciclo 2, o monitor passou a operar de forma híbrida: reage instantaneamente aos eventos do navegador e executa sondagem periódica leve (`fetch` a cada `3000ms` com `mode: 'no-cors'`, `cache: 'no-store'` e `AbortController`), detectando tanto desconexões físicas quanto quedas reais de acesso à rede sem comprometer a inicialização silenciosa (`INV-07`).
 
 ### Arquiteturais
 
-- Não foram identificadas violações arquiteturais (`0` erros de lint e validação).
-- O acesso às APIs do navegador (`navigator.onLine`, `window.addEventListener`, `window.removeEventListener`) ficou isolado exclusivamente em `src/connectivity/` (`INV-01`), sem importação de React nessa camada (`INV-02`).
-- Diferente do Experimento 1 (`no-harness`), essas fronteiras arquiteturais são aplicadas mecanicamente por regras `no-restricted-syntax` no `harness/eslint.config.js` e verificadas a cada execução de `npm run agent:check`.
+- Não foram identificadas violações arquiteturais em nenhum dos dois ciclos (`0` erros de lint e validação).
+- Mesmo após a adição da lógica assíncrona de sondagem (`setInterval`, `fetch`, `AbortController`), todo o controle permaneceu estritamente encapsulado em `src/connectivity/ConnectionMonitor.ts` (`INV-01` e `INV-02`), sem vazar efeitos colaterais ou dependências de rede para `src/hooks/` ou `src/components/`.
+- O ciclo de vida do heartbeat respeitou a contagem de referências (`INV-04`, `INV-05`) e o cleanup determinístico (`INV-11`), iniciando o intervalo apenas quando o primeiro assinante se conecta e abortando requisições pendentes no `unsubscribe`/`destroy`.
 
 ### Testes
 
-- A suíte de testes gerada executou `2` arquivos de teste e `8` cenários com aprovação integral:
-  - `src/connectivity/ConnectionMonitor.test.ts` (`6` testes unitários da camada reativa);
-  - `src/App.test.tsx` (`2` testes de integração e comportamento da interface).
-- Os testes cobrem boot silencioso, transições bidirecionais, auto-ocultação e preempção de timers (`vi.useFakeTimers()`), idempotência de eventos redundantes, limite LIFO de `10` itens, deduplicação de listeners sob `<StrictMode>` e cleanup determinístico no `unmount()`.
+- A suíte automatizada cobre tanto os 8 cenários originais da matriz de `AGENTS.md` quanto os novos cenários de sondagem ativa:
+  - `src/connectivity/ConnectionMonitor.test.ts`: testes unitários cobrindo boot silencioso, transições via eventos `window`, auto-ocultação e preempção de timers (`4000ms` com `clearTimeout`), idempotência, limite LIFO de `10` itens, deduplicação por contagem de referências, queda/recuperação detectada via rejeição/resolução de `fetch` mesmo com `navigator.onLine === true`, e abort de requisições no teardown.
+  - `src/App.test.tsx`: testes de integração da interface com Testing Library validando acessibilidade (`role="status"`), banners temporários e histórico sob `<StrictMode>`.
+  - `src/test/setup.ts`: configurado com mock padrão determinístico de `globalThis.fetch` para evitar interferência em testes baseados em `vi.useFakeTimers()`.
 
 ### Qualidade
 
-- A solução utiliza TypeScript estrito com contratos imutáveis (`readonly`) e sem uso de `any` (`INV-03`).
-- O script `scripts/validate.mjs` garante a integridade da estrutura do harness e bloqueia qualquer tentativa de supressão de erros via `@ts-ignore`, `@ts-expect-error` ou `eslint-disable` (`INV-12`).
-- O comando unificado `npm run agent:check` encadeia `lint`, `typecheck`, `test`, `build` e `validate`, garantindo que nenhuma alteração futura quebre as invariantes sem bloquear o pipeline.
+- Tipagem estrita em TypeScript sem uso de `any` ou casts inseguros (`INV-03`).
+- Governança preservada integralmente pelo script `scripts/validate.mjs` (`INV-12`), sem supressões (`@ts-ignore`, `@ts-expect-error`, `eslint-disable`) e sem alterações nos arquivos de regras.
+- O pipeline `npm run agent:check` (`lint && typecheck && test && build && validate`) validou todas as alterações automaticamente com código de saída `0`.
 
 ---
 
@@ -127,6 +163,7 @@ harness/
 
 ## 7. Observações
 
-- **Comparação direta com o Experimento 1 (`no-harness`):** No Experimento 1, a organização arquitetural dependeu exclusivamente da obediência pontual do agente às instruções presentes no prompt, sem mecanismos persistentes para impedir regressões futuras. No Experimento 2, o **Agent Harness** persistiu o contrato no repositório (`AGENTS.md` e `docs/invariants.md`) e transformou as regras arquiteturais em bloqueios verificáveis automaticamente (`eslint.config.js` e `scripts/validate.mjs`).
-- **Infraestrutura e escolha de modelo no modo Agent:** Durante a preparação do experimento, tentativas iniciais utilizando modelos do plano gratuito de API externa atingiram limites de taxa por minuto (`429 Too Many Requests` — limite de 5 requisições/minuto) devido ao alto volume de chamadas de ferramentas (*tool calling*) exigido por um fluxo autônomo. A troca para um modelo nativo integrado (`Copilot Fusion - Standard`) permitiu concluir todo o ciclo sem interrupções.
-- **Comportamento de `navigator.onLine` no Windows:** Durante o teste manual no navegador, observou-se que desativar apenas o Wi-Fi físico ou ativar o Modo Avião no Windows não altera `navigator.onLine` quando há interfaces de rede virtuais ativas no sistema operacional (como adaptadores de WSL, Docker Desktop ou Hyper-V). A simulação direta pelo DevTools do navegador (`F12 → Network → Offline`) aciona os eventos nativos `offline` e `online` corretamente, confirmando o funcionamento reativo da interface.
+- **Valor do Harness na evolução iterativa:** O principal ganho prático observado neste experimento ocorreu no **Ciclo 2**. Ao solicitar uma mudança não trivial na lógica de detecção (sondagem periódica assíncrona com `fetch` e `AbortController`), o **Agent Harness** garantiu que o agente não violasse o isolamento de camadas, não quebrasse o comportamento em React `<StrictMode>` e não deixasse timers ou requisições pendentes após a desmontagem — tudo verificado automaticamente pelo `npm run agent:check`.
+- **Comparação direta com o Experimento 1 (`no-harness`):** Enquanto no Experimento 1 a aderência arquitetural existia apenas no contexto volátil do prompt inicial, no Experimento 2 as regras persistentes (`AGENTS.md`, `invariants.md`, `eslint.config.js` e `validate.mjs`) atuaram como salvaguardas contínuas durante a criação e a evolução do software.
+- **Comportamento de `navigator.onLine` no Windows e solução híbrida:** No Windows, adaptadores virtuais criados por WSL, Docker Desktop ou Hyper-V mantêm o estado lógico da rede ativo para o navegador mesmo quando o Wi-Fi físico é desligado ou o Modo Avião é ativado. A combinação entre listeners de eventos do navegador e heartbeat via `fetch` resolveu essa limitação mantendo a aplicação fiel ao modelo reativo.
+- **Escolha de modelo no modo Agent:** Tentativas iniciais com modelos de cota gratuita via API externa sofreram bloqueio de taxa (`429 Too Many Requests` — limite de 5 requisições/minuto) devido ao alto volume de chamadas de ferramentas (*tool calling*) do fluxo autônomo. O uso de um modelo nativo integrado (`Copilot Fusion - Standard`) permitiu executar ambos os ciclos sem interrupções.
