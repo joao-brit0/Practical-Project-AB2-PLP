@@ -68,8 +68,8 @@ Execute `npm run agent:check` dentro de `harness/` e corrija qualquer falha até
 - **Data:** 25/11/2026
 - **Agente/modelo:** `Copilot Fusion - Standard` (VS Code Copilot Chat em modo `Agent` / `Autopilot`)
 - **Tempo aproximado:**
-  - **Ciclo 1 (Geração inicial):** ~4min (08:30 às 08:34)
-  - **Ciclo 2 (Refinamento híbrido):** 1min 50s (20 passos executados pelo agente)
+  - **Ciclo 1 (Geração inicial):** ~4min 
+  - **Ciclo 2 (Refinamento híbrido):** ~2min 
 
 Partindo exclusivamente dos arquivos de governança (`harness/AGENTS.md` e `harness/docs/invariants.md`), o agente inicializou o projeto Vite + TypeScript, configurou os bloqueios mecânicos (`eslint.config.js` e `scripts/validate.mjs`), implementou a arquitetura em camadas e, na segunda iteração, incorporou a sondagem ativa via `fetch` mantendo todas as invariantes intactas.
 
