@@ -52,7 +52,9 @@ describe('ConnectionMonitor', () => {
   });
 
   it('ignores repeated events that do not change the status', () => {
-    const monitor = new ConnectionMonitor();
+    const monitor = new ConnectionMonitor(window, {
+      heartbeatIntervalMs: null,
+    });
     const listener = vi.fn();
     const unsubscribe = monitor.subscribe(listener);
 
@@ -70,7 +72,9 @@ describe('ConnectionMonitor', () => {
 
   it('emits transition state atomically and hides notifications after four seconds', () => {
     vi.useFakeTimers();
-    const monitor = new ConnectionMonitor();
+    const monitor = new ConnectionMonitor(window, {
+      heartbeatIntervalMs: null,
+    });
     const listener = vi.fn();
     const unsubscribe = monitor.subscribe(listener);
 
@@ -92,7 +96,9 @@ describe('ConnectionMonitor', () => {
   it('preempts the previous notification timer on a new transition', () => {
     vi.useFakeTimers();
     const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
-    const monitor = new ConnectionMonitor();
+    const monitor = new ConnectionMonitor(window, {
+      heartbeatIntervalMs: null,
+    });
     const unsubscribe = monitor.subscribe(vi.fn());
 
     window.dispatchEvent(new Event('offline'));
@@ -106,6 +112,73 @@ describe('ConnectionMonitor', () => {
     vi.advanceTimersByTime(2000);
     expect(monitor.getSnapshot().notification).toBeNull();
     unsubscribe();
+  });
+
+  it('detects an offline connection when the probe rejects despite navigator.onLine', async () => {
+    vi.useFakeTimers();
+    setOnline(true);
+    vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error('Network error'));
+    const monitor = new ConnectionMonitor();
+    const unsubscribe = monitor.subscribe(vi.fn());
+
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(monitor.getSnapshot().status).toBe('offline');
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'https://www.google.com/generate_204',
+      expect.objectContaining({
+        mode: 'no-cors',
+        cache: 'no-store',
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    unsubscribe();
+  });
+
+  it('restores online status when a later probe resolves', async () => {
+    vi.useFakeTimers();
+    vi.mocked(globalThis.fetch)
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const monitor = new ConnectionMonitor();
+    const unsubscribe = monitor.subscribe(vi.fn());
+
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(monitor.getSnapshot().status).toBe('offline');
+
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(monitor.getSnapshot().status).toBe('online');
+    expect(monitor.getSnapshot().history.map(({ status }) => status)).toEqual([
+      'online',
+      'offline',
+    ]);
+    unsubscribe();
+  });
+
+  it('clears the heartbeat and aborts an in-flight probe on unsubscribe and destroy', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockReturnValue(new Promise<Response>(() => undefined));
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval');
+    const monitor = new ConnectionMonitor();
+    const unsubscribe = monitor.subscribe(vi.fn());
+
+    await vi.advanceTimersByTimeAsync(3000);
+    const unsubscribeSignal = fetchMock.mock.calls[0]?.[1]?.signal;
+    expect(unsubscribeSignal).toBeInstanceOf(AbortSignal);
+    unsubscribe();
+    expect(clearIntervalSpy).toHaveBeenCalledTimes(1);
+    expect(unsubscribeSignal?.aborted).toBe(true);
+
+    fetchMock.mockReturnValueOnce(new Promise<Response>(() => undefined));
+    const destroyMonitor = new ConnectionMonitor();
+    destroyMonitor.subscribe(vi.fn());
+    await vi.advanceTimersByTimeAsync(3000);
+    const destroySignal = fetchMock.mock.calls[1]?.[1]?.signal;
+
+    destroyMonitor.destroy();
+    expect(clearIntervalSpy).toHaveBeenCalledTimes(2);
+    expect(destroySignal?.aborted).toBe(true);
   });
 
   it('keeps a frozen, newest-first history capped at ten events', () => {
