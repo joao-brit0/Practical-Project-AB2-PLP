@@ -7,6 +7,7 @@ O repositório contém duas implementações independentes da mesma aplicação,
 - **Sem Harness (`no-harness/`):** desenvolvimento realizado por um agente de IA utilizando apenas os requisitos fornecidos diretamente no prompt, sem mecanismos persistentes de orientação ou validação arquitetural.
 - **Com Harness (`harness/`):** desenvolvimento realizado por um agente de IA apoiado por artefatos persistentes no repositório, incluindo instruções, regras arquiteturais, testes e validações automatizadas.
 
+LINK DO VÍDEO: https://youtu.be/bWd2igAvHt8
 ---
 
 ## Sumário
